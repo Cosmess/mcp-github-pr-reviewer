@@ -17,7 +17,11 @@ def _diff_analyzer() -> DiffAnalyzer:
     return DiffAnalyzer()
 
 
-def _ok(data: object, service: GitHubService | None = None, warnings: list[str] | None = None) -> dict:
+def _ok(
+    data: object,
+    service: GitHubService | None = None,
+    warnings: list[str] | None = None,
+) -> dict:
     return ToolResponse(
         ok=True,
         data=data,

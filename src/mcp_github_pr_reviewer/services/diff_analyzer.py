@@ -53,10 +53,18 @@ class DiffAnalyzer:
     def _risks(self, files: list[ChangedFile]) -> list[str]:
         risks: list[str] = []
         if any(self._has_fragment(file.filename, ("migration", "schema")) for file in files):
-            risks.append("Mudanças em schema/migrations podem exigir validação de rollback e dados.")
-        if any(self._has_fragment(file.filename, ("auth", "security", "permission")) for file in files):
+            risks.append(
+                "Mudanças em schema/migrations podem exigir validação de rollback e dados."
+            )
+        if any(
+            self._has_fragment(file.filename, ("auth", "security", "permission"))
+            for file in files
+        ):
             risks.append("Mudanças em autenticação/autorização podem afetar controle de acesso.")
-        if any(self._has_fragment(file.filename, ("payment", "settlement", "invoice")) for file in files):
+        if any(
+            self._has_fragment(file.filename, ("payment", "settlement", "invoice"))
+            for file in files
+        ):
             risks.append("Mudanças em fluxo financeiro podem impactar conciliação ou liquidação.")
         if sum(file.changes for file in files) > 500:
             risks.append("PR grande: maior risco de regressão e revisão parcial.")
@@ -68,13 +76,25 @@ class DiffAnalyzer:
     def _suggest_tests(self, files: list[ChangedFile]) -> list[str]:
         suggestions = ["Executar a suíte automatizada relacionada aos módulos alterados."]
         if any(self._has_fragment(file.filename, ("api", "controller", "route")) for file in files):
-            suggestions.append("Adicionar ou revisar testes de contrato/API para os endpoints alterados.")
-        if any(self._has_fragment(file.filename, ("service", "use_case", "handler")) for file in files):
-            suggestions.append("Adicionar testes unitários para regras de negócio e cenários de borda.")
+            suggestions.append(
+                "Adicionar ou revisar testes de contrato/API para os endpoints alterados."
+            )
+        if any(
+            self._has_fragment(file.filename, ("service", "use_case", "handler"))
+            for file in files
+        ):
+            suggestions.append(
+                "Adicionar testes unitários para regras de negócio e cenários de borda."
+            )
         if any(self._has_fragment(file.filename, ("migration", "schema")) for file in files):
             suggestions.append("Validar migration em base local e cenário de rollback.")
-        if any(self._has_fragment(file.filename, ("payment", "settlement", "invoice")) for file in files):
-            suggestions.append("Cobrir cenários financeiros de sucesso, falha, duplicidade e divergência.")
+        if any(
+            self._has_fragment(file.filename, ("payment", "settlement", "invoice"))
+            for file in files
+        ):
+            suggestions.append(
+                "Cobrir cenários financeiros de sucesso, falha, duplicidade e divergência."
+            )
 
         return suggestions
 
