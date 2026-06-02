@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "github-pr-reviewer": {
+      "command": "mcp-github-pr-reviewer",
+      "env": {
+        "GITHUB_TOKEN": "ghp_replace_with_a_readonly_token",
+        "ALLOWED_REPOSITORIES": "Cosmess/mcp-github-pr-reviewer"
+      }
+    }
+  }
+}
