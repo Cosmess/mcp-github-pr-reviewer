@@ -29,9 +29,7 @@ class Settings(BaseSettings):
     @property
     def repository_allowlist(self) -> set[str]:
         return {
-            item.strip().lower()
-            for item in self.allowed_repositories.split(",")
-            if item.strip()
+            item.strip().lower() for item in self.allowed_repositories.split(",") if item.strip()
         }
 
 

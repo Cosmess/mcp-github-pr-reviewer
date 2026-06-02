@@ -75,9 +75,7 @@ class LLMAnalyzerService:
             response = await client.post("/chat/completions", json=payload)
 
         if response.status_code >= 400:
-            raise LLMServiceError(
-                f"LLM API returned {response.status_code}: {response.text[:500]}"
-            )
+            raise LLMServiceError(f"LLM API returned {response.status_code}: {response.text[:500]}")
 
         return self._extract_content(response.json())
 

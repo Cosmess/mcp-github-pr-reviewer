@@ -32,9 +32,7 @@ def assert_write_action_allowed(settings: Settings, confirm: bool) -> None:
         )
 
     if not confirm:
-        raise WriteActionNotConfirmedError(
-            "GitHub write actions require confirm=true."
-        )
+        raise WriteActionNotConfirmedError("GitHub write actions require confirm=true.")
 
 
 def truncate_patch(patch: str, max_chars: int) -> str:

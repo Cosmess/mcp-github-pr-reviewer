@@ -57,8 +57,7 @@ class DiffAnalyzer:
                 "Mudanças em schema/migrations podem exigir validação de rollback e dados."
             )
         if any(
-            self._has_fragment(file.filename, ("auth", "security", "permission"))
-            for file in files
+            self._has_fragment(file.filename, ("auth", "security", "permission")) for file in files
         ):
             risks.append("Mudanças em autenticação/autorização podem afetar controle de acesso.")
         if any(
@@ -80,8 +79,7 @@ class DiffAnalyzer:
                 "Adicionar ou revisar testes de contrato/API para os endpoints alterados."
             )
         if any(
-            self._has_fragment(file.filename, ("service", "use_case", "handler"))
-            for file in files
+            self._has_fragment(file.filename, ("service", "use_case", "handler")) for file in files
         ):
             suggestions.append(
                 "Adicionar testes unitários para regras de negócio e cenários de borda."

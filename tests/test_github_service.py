@@ -26,8 +26,7 @@ def test_next_page_path_from_link_header() -> None:
         200,
         headers={
             "Link": (
-                '<https://api.github.com/repos/Cosmess/example/pulls/1/files?page=2>; '
-                'rel="next"'
+                '<https://api.github.com/repos/Cosmess/example/pulls/1/files?page=2>; rel="next"'
             )
         },
     )
