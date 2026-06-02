@@ -1,0 +1,9 @@
+services:
+  mcp-github-pr-reviewer:
+    build:
+      context: .
+    env_file:
+      - .env
+    stdin_open: true
+    tty: true
+    restart: unless-stopped
