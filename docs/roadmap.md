@@ -1,39 +1,40 @@
 # Roadmap
 
-## Version 1
+## Versão 1
 
-- MCP Server in Python.
-- Read-only GitHub REST API integration.
-- Repository allowlist.
-- Pull request metadata.
-- Changed file listing.
-- Patch retrieval with truncation.
-- Deterministic heuristic analysis.
-- Markdown review generation.
-- Unit tests.
-- Docker and Docker Compose.
-- CI with tests and lint.
+- MCP Server em Python.
+- Integração com GitHub REST API.
+- Allowlist de repositórios.
+- Metadados de Pull Request.
+- Listagem de arquivos alterados.
+- Leitura de patch com truncamento.
+- Análise heurística determinística.
+- Análise LLM opcional com endpoint OpenAI-compatible.
+- Geração de revisão em Markdown.
+- Dry-run para comentário em Pull Request.
+- Testes unitários.
+- Docker e Docker Compose.
+- CI com testes e lint.
 
-## Version 2
+## Versão 2
 
-- Better language-aware risk detection.
-- Configurable LLM provider behind an analyzer interface.
-- Local demo mode using fixtures.
-- More complete MCP client examples.
-- More examples of generated review output.
+- Detecção de risco mais sensível por linguagem.
+- Modo demo local com fixtures.
+- Mais exemplos de configuração para clientes MCP.
+- Mais exemplos de saída de revisão.
+- Testes com mocks para chamadas HTTP da GitHub API.
 
-## Version 3
+## Versão 3
 
-- Comment-on-PR support with `dry-run` by default.
-- Explicit confirmation for write actions.
-- Audit logging.
-- GitHub rate limit warnings.
-- Cache for repeated GitHub requests.
+- Fluxo mais completo para publicação de comentários.
+- Logs de auditoria.
+- Avisos mais ricos de rate limit do GitHub.
+- Cache para chamadas repetidas ao GitHub.
 
-## Version 4
+## Versão 4
 
-- RAG over project documentation.
-- ADR comparison.
-- Architecture policy checks.
-- GitHub Actions integration.
-- Review history dashboard.
+- RAG sobre documentação do projeto.
+- Comparação com ADRs.
+- Checagens de política arquitetural.
+- Integração com GitHub Actions.
+- Dashboard simples com histórico de análises.

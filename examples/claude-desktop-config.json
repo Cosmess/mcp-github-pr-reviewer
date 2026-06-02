@@ -4,7 +4,9 @@
       "command": "mcp-github-pr-reviewer",
       "env": {
         "GITHUB_TOKEN": "ghp_replace_with_a_readonly_token",
-        "ALLOWED_REPOSITORIES": "Cosmess/mcp-github-pr-reviewer"
+        "ALLOWED_REPOSITORIES": "Cosmess/mcp-github-pr-reviewer",
+        "LLM_ANALYZER_ENABLED": "false",
+        "ENABLE_GITHUB_WRITE_ACTIONS": "false"
       }
     }
   }

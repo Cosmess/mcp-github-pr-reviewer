@@ -1,19 +1,20 @@
 # mcp-github-pr-reviewer
 
-MCP Server em Python para análise read-only de Pull Requests no GitHub.
+MCP Server em Python para análise de Pull Requests no GitHub.
 
 O projeto permite que um agente conectado via Model Context Protocol consulte
-PRs, leia arquivos alterados, identifique riscos e gere uma revisão técnica em
-Markdown sem conceder acesso direto do agente ao GitHub.
+PRs, leia arquivos alterados, identifique riscos, gere revisão técnica em
+Markdown e, com proteção explícita, prepare ou publique comentários no PR.
 
-## Por que existe
+## Por Que Existe
 
 Revisões de PR exigem contexto, atenção a risco e bons testes. Este servidor
 organiza os dados do GitHub e entrega uma análise inicial consistente para apoiar
 o engenheiro durante a revisão.
 
-O MVP é determinístico e não depende de LLM. Uma integração com LLM pode ser
-adicionada depois sem acoplar o provedor às tools MCP.
+Por padrão, a análise é determinística e não depende de LLM. Uma análise LLM
+opcional pode ser habilitada para complementar o review com um provedor
+OpenAI-compatible.
 
 ## Tools
 
@@ -25,13 +26,23 @@ get_pull_request_diff
 analyze_pull_request
 suggest_unit_tests
 generate_markdown_review
+comment_on_pull_request
 ```
 
 ## Arquitetura
 
-```txt
-MCP Client -> FastMCP Server -> GitHub Service -> GitHub REST API
-                              -> Diff Analyzer -> Markdown Review
+```mermaid
+flowchart LR
+    A[Cliente MCP] --> B[FastMCP Server]
+    B --> C[GitHub Service]
+    C --> D[GitHub REST API]
+    C --> E[Diff Analyzer]
+    E --> F{LLM habilitado?}
+    F -->|não| H[Resposta estruturada]
+    F -->|sim| G[Optional LLM Analyzer]
+    G --> H
+    B --> I[Comment Dry-Run]
+    I --> H
 ```
 
 Veja [docs/architecture.md](docs/architecture.md).
@@ -40,6 +51,7 @@ Veja [docs/architecture.md](docs/architecture.md).
 
 - Python 3.12+
 - Token GitHub com permissão mínima de leitura
+- Token GitHub com permissão de comentário apenas se ações de escrita forem habilitadas
 
 ## Configuração
 
@@ -52,6 +64,38 @@ ALLOWED_REPOSITORIES=Cosmess/mcp-github-pr-reviewer
 
 `ALLOWED_REPOSITORIES` é opcional. Quando preenchido, apenas os repositórios
 listados podem ser consultados.
+
+## LLM Opcional
+
+Para complementar a análise heurística com um provedor OpenAI-compatible:
+
+```txt
+LLM_ANALYZER_ENABLED=true
+LLM_API_KEY=replace_with_provider_key
+LLM_API_BASE_URL=https://api.openai.com/v1
+LLM_MODEL=gpt-4.1-mini
+```
+
+Quando habilitado, `analyze_pull_request` e `generate_markdown_review` adicionam
+uma seção `Análise LLM opcional` ao Markdown.
+
+Para repositórios privados, só habilite isso quando for permitido enviar patches
+e metadados do PR para o provedor configurado.
+
+## Comentário Com Dry-Run
+
+`comment_on_pull_request` usa `dry_run=true` por padrão. Nesse modo, a tool não
+publica nada no GitHub; ela apenas retorna o comentário que seria enviado.
+
+Para comentar de verdade, três condições precisam ser atendidas:
+
+```txt
+ENABLE_GITHUB_WRITE_ACTIONS=true
+dry_run=false
+confirm=true
+```
+
+Isso evita que um agente publique comentários por acidente.
 
 ## Desenvolvimento
 
@@ -85,17 +129,18 @@ docker compose run --rm mcp-github-pr-reviewer
 
 ## Segurança
 
-- O MVP é somente leitura.
 - Repositórios podem ser restringidos por allowlist.
 - Patches grandes são truncados por `MAX_PATCH_CHARS`.
+- Contexto enviado ao LLM é limitado por `LLM_MAX_PATCH_CHARS`.
 - Secrets não devem ser enviados em logs ou respostas.
-- Ações de escrita, como comentar no PR, não fazem parte do MVP.
+- Escrita no GitHub é desabilitada por padrão.
+- Comentário real exige flag de ambiente e confirmação explícita.
 
 Veja [docs/security.md](docs/security.md).
 
 ## Documentação
 
-- [Usage](docs/usage.md)
-- [Architecture](docs/architecture.md)
-- [Security](docs/security.md)
+- [Uso](docs/usage.md)
+- [Arquitetura](docs/architecture.md)
+- [Segurança](docs/security.md)
 - [Roadmap](docs/roadmap.md)

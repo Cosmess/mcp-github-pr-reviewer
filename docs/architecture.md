@@ -1,103 +1,129 @@
-# Architecture
+# Arquitetura
 
-## Overview
+## Visão Geral
 
-`mcp-github-pr-reviewer` is a read-only MCP Server that exposes GitHub pull
-request review capabilities to MCP clients.
+`mcp-github-pr-reviewer` é um MCP Server que expõe recursos de revisão de Pull
+Requests do GitHub para clientes MCP.
+
+```mermaid
+flowchart TD
+    A[Cliente MCP] -->|chama tools| B[FastMCP Server]
+    B --> C[Application Services]
+    C --> D[Security Policies]
+    C --> E[GitHub Service]
+    E -->|REST API| F[GitHub]
+    F -->|PR metadata, files e patches| E
+    E --> G[Diff Analyzer]
+    G --> H{LLM habilitado?}
+    H -->|não| J[Resposta MCP estruturada]
+    H -->|sim| I[Optional LLM Analyzer]
+    I --> J
+    C --> K[Comment Dry-Run]
+    K --> J
+```
+
+Fluxo principal:
 
 ```txt
-MCP Client
+Cliente MCP
    |
-   | calls tools
+   | chama tools
    v
 FastMCP Server
    |
-   | delegates
+   | delega
    v
 Application Services
    |
-   | validates policy and calls GitHub
+   | validam políticas e chamam GitHub
    v
 GitHub REST API
    |
-   | returns PR metadata and files
+   | retorna metadados e arquivos do PR
    v
 Diff Analyzer
    |
-   | builds deterministic review output
+   | gera análise determinística
    v
-Structured MCP response
+Optional LLM Analyzer
+   |
+   | adiciona seção de análise LLM quando habilitado
+   v
+Resposta MCP estruturada
 ```
 
-## Layers
+## Camadas
 
-### MCP layer
+### Camada MCP
 
-Located in `src/mcp_github_pr_reviewer/server.py`.
+Arquivo: `src/mcp_github_pr_reviewer/server.py`.
 
-Responsibilities:
+Responsabilidades:
 
-- Register tools.
-- Receive MCP client input.
-- Delegate work to services.
-- Return JSON/Markdown-compatible responses.
+- Registrar tools MCP.
+- Receber entrada do cliente MCP.
+- Delegar trabalho para os services.
+- Retornar respostas compatíveis com JSON/Markdown.
 
-### Configuration layer
+### Camada De Configuração
 
-Located in `src/mcp_github_pr_reviewer/config.py`.
+Arquivo: `src/mcp_github_pr_reviewer/config.py`.
 
-Responsibilities:
+Responsabilidades:
 
-- Read environment variables.
-- Define API timeout and patch size limits.
-- Build repository allowlist.
+- Ler variáveis de ambiente.
+- Definir timeout da API e limites de patch.
+- Montar allowlist de repositórios.
+- Configurar análise LLM opcional.
+- Manter ações de escrita no GitHub desabilitadas por padrão.
 
-### Security policy layer
+### Camada De Segurança
 
-Located in `src/mcp_github_pr_reviewer/security/policies.py`.
+Arquivo: `src/mcp_github_pr_reviewer/security/policies.py`.
 
-Responsibilities:
+Responsabilidades:
 
-- Validate repository access.
-- Truncate large patches.
-- Keep write actions out of the MVP.
+- Validar acesso ao repositório.
+- Truncar patches grandes.
+- Bloquear ações de escrita quando não estiverem habilitadas e confirmadas.
 
-### GitHub service layer
+### Camada GitHub Service
 
-Located in `src/mcp_github_pr_reviewer/services/github_service.py`.
+Arquivo: `src/mcp_github_pr_reviewer/services/github_service.py`.
 
-Responsibilities:
+Responsabilidades:
 
-- Call GitHub REST API.
-- Map API payloads to internal models.
-- Handle pagination and GitHub response metadata.
-- Normalize API errors.
+- Chamar a GitHub REST API.
+- Mapear payloads da API para modelos internos.
+- Tratar paginação e metadados de rate limit.
+- Normalizar erros da API.
+- Executar dry-run de comentários sem chamar endpoints de escrita.
+- Publicar comentários somente quando a escrita estiver habilitada e confirmada.
 
-### Analysis layer
+### Camada De Análise
 
-Located in `src/mcp_github_pr_reviewer/services/diff_analyzer.py`.
+Arquivo: `src/mcp_github_pr_reviewer/services/diff_analyzer.py`.
 
-Responsibilities:
+Responsabilidades:
 
-- Identify important files.
-- Detect common risks.
-- Suggest tests.
-- Generate Markdown review output.
+- Identificar arquivos importantes.
+- Detectar riscos comuns.
+- Sugerir testes.
+- Gerar revisão em Markdown.
 
-The first version is intentionally deterministic and does not require an LLM.
-This keeps tests stable and makes the baseline behavior easy to inspect.
+A análise base é determinística e não depende de LLM. Isso mantém os testes
+estáveis e deixa o comportamento fácil de revisar.
 
-## Future LLM integration
+### Analisador LLM Opcional
 
-A future `LLMAnalyzer` should be added behind an interface instead of mixing LLM
-calls into MCP tools or GitHub service code.
+Arquivo: `src/mcp_github_pr_reviewer/services/llm_service.py`.
 
-Suggested shape:
+Responsabilidades:
 
-```txt
-Analyzer
-├── HeuristicAnalyzer
-└── LLMAnalyzer
-```
+- Chamar um endpoint OpenAI-compatible de chat completions.
+- Limitar o contexto de patch enviado ao provedor.
+- Adicionar uma seção separada ao Markdown gerado pela análise determinística.
+- Permanecer desabilitado até que `LLM_ANALYZER_ENABLED=true` e `LLM_API_KEY`
+  estejam configurados.
 
-The server can then select the analyzer using environment configuration.
+O LLM complementa a revisão heurística. Ele não substitui a análise local.
