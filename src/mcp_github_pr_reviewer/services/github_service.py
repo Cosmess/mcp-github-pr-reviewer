@@ -5,7 +5,7 @@ from typing import Any
 import httpx
 
 from mcp_github_pr_reviewer.config import Settings
-from mcp_github_pr_reviewer.models import ChangedFile, PullRequest
+from mcp_github_pr_reviewer.models import ChangedFile, GitHubRateLimit, PullRequest
 from mcp_github_pr_reviewer.security.policies import assert_repository_allowed, truncate_patch
 
 
@@ -13,9 +13,17 @@ class GitHubServiceError(RuntimeError):
     """Raised when GitHub returns an unexpected response."""
 
 
+class GitHubAPIError(GitHubServiceError):
+    def __init__(self, status_code: int, message: str, rate_limit: GitHubRateLimit | None) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.rate_limit = rate_limit
+
+
 class GitHubService:
     def __init__(self, settings: Settings) -> None:
         self._settings = settings
+        self.last_rate_limit: GitHubRateLimit | None = None
 
     @asynccontextmanager
     async def _client(self) -> AsyncIterator[httpx.AsyncClient]:
@@ -55,7 +63,7 @@ class GitHubService:
         self, owner: str, repo: str, pull_number: int
     ) -> list[ChangedFile]:
         assert_repository_allowed(owner, repo, self._settings)
-        data = await self._get_json(
+        data = await self._get_paginated_json(
             f"/repos/{owner}/{repo}/pulls/{pull_number}/files",
             params={"per_page": 100},
         )
@@ -65,12 +73,63 @@ class GitHubService:
         async with self._client() as client:
             response = await client.get(path, params=params)
 
+        self.last_rate_limit = self._rate_limit_from_response(response)
         if response.status_code >= 400:
-            raise GitHubServiceError(
-                f"GitHub API returned {response.status_code}: {response.text[:500]}"
+            raise GitHubAPIError(
+                response.status_code,
+                f"GitHub API returned {response.status_code}: {response.text[:500]}",
+                self.last_rate_limit,
             )
 
         return response.json()
+
+    async def _get_paginated_json(
+        self, path: str, params: dict[str, Any] | None = None, max_pages: int = 10
+    ) -> list[Any]:
+        items: list[Any] = []
+        next_path: str | None = path
+        next_params = params
+        pages_read = 0
+
+        async with self._client() as client:
+            while next_path and pages_read < max_pages:
+                response = await client.get(next_path, params=next_params)
+                self.last_rate_limit = self._rate_limit_from_response(response)
+                if response.status_code >= 400:
+                    raise GitHubAPIError(
+                        response.status_code,
+                        f"GitHub API returned {response.status_code}: {response.text[:500]}",
+                        self.last_rate_limit,
+                    )
+
+                payload = response.json()
+                if not isinstance(payload, list):
+                    raise GitHubServiceError("Expected a list response from GitHub API.")
+
+                items.extend(payload)
+                next_path = self._next_page_path(response)
+                next_params = None
+                pages_read += 1
+
+        return items
+
+    def _next_page_path(self, response: httpx.Response) -> str | None:
+        next_url = response.links.get("next", {}).get("url")
+        if not next_url:
+            return None
+
+        parsed = httpx.URL(next_url)
+        path = parsed.path
+        query = parsed.query.decode("utf-8")
+        return path + (f"?{query}" if query else "")
+
+    def _rate_limit_from_response(self, response: httpx.Response) -> GitHubRateLimit:
+        remaining = response.headers.get("X-RateLimit-Remaining")
+        reset = response.headers.get("X-RateLimit-Reset")
+        return GitHubRateLimit(
+            remaining=int(remaining) if remaining and remaining.isdigit() else None,
+            reset_epoch=int(reset) if reset and reset.isdigit() else None,
+        )
 
     def _map_pull_request(self, data: dict[str, Any]) -> PullRequest:
         return PullRequest(
