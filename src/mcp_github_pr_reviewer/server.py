@@ -5,6 +5,7 @@ from mcp_github_pr_reviewer.models import ErrorDetail, ToolResponse
 from mcp_github_pr_reviewer.security.policies import RepositoryNotAllowedError
 from mcp_github_pr_reviewer.services.diff_analyzer import DiffAnalyzer
 from mcp_github_pr_reviewer.services.github_service import GitHubAPIError, GitHubService
+from mcp_github_pr_reviewer.services.llm_service import LLMAnalyzerService, LLMServiceError
 
 mcp = FastMCP("mcp-github-pr-reviewer")
 
@@ -15,6 +16,10 @@ def _github_service() -> GitHubService:
 
 def _diff_analyzer() -> DiffAnalyzer:
     return DiffAnalyzer()
+
+
+def _llm_analyzer() -> LLMAnalyzerService:
+    return LLMAnalyzerService(get_settings())
 
 
 def _ok(
@@ -50,6 +55,8 @@ def _handle_error(error: Exception, service: GitHubService | None = None) -> dic
         return _error("repository_not_allowed", str(error), service)
     if isinstance(error, GitHubAPIError):
         return _error("github_api_error", str(error), service)
+    if isinstance(error, LLMServiceError):
+        return _error("llm_api_error", str(error), service)
     return _error("internal_error", str(error), service)
 
 
@@ -107,6 +114,7 @@ async def analyze_pull_request(owner: str, repo: str, pull_number: int) -> dict:
         pull_request = await service.get_pull_request(owner, repo, pull_number)
         files = await service.get_pull_request_files(owner, repo, pull_number)
         analysis = _diff_analyzer().analyze(pull_request, files)
+        analysis = await _llm_analyzer().enhance_review(pull_request, files, analysis)
         return _ok(analysis.model_dump(), service, _rate_limit_warnings(service))
     except Exception as error:
         return _handle_error(error, service)
@@ -132,7 +140,9 @@ async def generate_markdown_review(owner: str, repo: str, pull_number: int) -> d
     try:
         pull_request = await service.get_pull_request(owner, repo, pull_number)
         files = await service.get_pull_request_files(owner, repo, pull_number)
-        data = _diff_analyzer().analyze(pull_request, files).markdown_review
+        analysis = _diff_analyzer().analyze(pull_request, files)
+        analysis = await _llm_analyzer().enhance_review(pull_request, files, analysis)
+        data = analysis.markdown_review
         return _ok(data, service, _rate_limit_warnings(service))
     except Exception as error:
         return _handle_error(error, service)
