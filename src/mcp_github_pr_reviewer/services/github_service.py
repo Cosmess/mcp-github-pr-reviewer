@@ -6,7 +6,11 @@ import httpx
 
 from mcp_github_pr_reviewer.config import Settings
 from mcp_github_pr_reviewer.models import ChangedFile, GitHubRateLimit, PullRequest
-from mcp_github_pr_reviewer.security.policies import assert_repository_allowed, truncate_patch
+from mcp_github_pr_reviewer.security.policies import (
+    assert_repository_allowed,
+    assert_write_action_allowed,
+    truncate_patch,
+)
 
 
 class GitHubServiceError(RuntimeError):
@@ -69,9 +73,55 @@ class GitHubService:
         )
         return [self._map_changed_file(item) for item in data]
 
+    async def comment_on_pull_request(
+        self,
+        owner: str,
+        repo: str,
+        pull_number: int,
+        body: str,
+        dry_run: bool = True,
+        confirm: bool = False,
+    ) -> dict[str, Any]:
+        assert_repository_allowed(owner, repo, self._settings)
+        target = f"{owner}/{repo}#{pull_number}"
+
+        if dry_run:
+            return {
+                "dry_run": True,
+                "would_comment": True,
+                "target": target,
+                "body": body,
+            }
+
+        assert_write_action_allowed(self._settings, confirm)
+        data = await self._post_json(
+            f"/repos/{owner}/{repo}/issues/{pull_number}/comments",
+            json={"body": body},
+        )
+        return {
+            "dry_run": False,
+            "commented": True,
+            "target": target,
+            "comment_url": data.get("html_url"),
+        }
+
     async def _get_json(self, path: str, params: dict[str, Any] | None = None) -> Any:
         async with self._client() as client:
             response = await client.get(path, params=params)
+
+        self.last_rate_limit = self._rate_limit_from_response(response)
+        if response.status_code >= 400:
+            raise GitHubAPIError(
+                response.status_code,
+                f"GitHub API returned {response.status_code}: {response.text[:500]}",
+                self.last_rate_limit,
+            )
+
+        return response.json()
+
+    async def _post_json(self, path: str, json: dict[str, Any]) -> Any:
+        async with self._client() as client:
+            response = await client.post(path, json=json)
 
         self.last_rate_limit = self._rate_limit_from_response(response)
         if response.status_code >= 400:

@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     github_timeout_seconds: float = Field(default=20.0, validation_alias="GITHUB_TIMEOUT_SECONDS")
     allowed_repositories: str = Field(default="", validation_alias="ALLOWED_REPOSITORIES")
     max_patch_chars: int = Field(default=120_000, validation_alias="MAX_PATCH_CHARS")
+    enable_github_write_actions: bool = Field(
+        default=False, validation_alias="ENABLE_GITHUB_WRITE_ACTIONS"
+    )
     llm_analyzer_enabled: bool = Field(default=False, validation_alias="LLM_ANALYZER_ENABLED")
     llm_api_key: str = Field(default="", validation_alias="LLM_API_KEY")
     llm_api_base_url: HttpUrl = Field(

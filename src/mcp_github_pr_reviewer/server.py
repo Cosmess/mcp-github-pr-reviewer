@@ -2,7 +2,11 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_github_pr_reviewer.config import get_settings
 from mcp_github_pr_reviewer.models import ErrorDetail, ToolResponse
-from mcp_github_pr_reviewer.security.policies import RepositoryNotAllowedError
+from mcp_github_pr_reviewer.security.policies import (
+    RepositoryNotAllowedError,
+    WriteActionDisabledError,
+    WriteActionNotConfirmedError,
+)
 from mcp_github_pr_reviewer.services.diff_analyzer import DiffAnalyzer
 from mcp_github_pr_reviewer.services.github_service import GitHubAPIError, GitHubService
 from mcp_github_pr_reviewer.services.llm_service import LLMAnalyzerService, LLMServiceError
@@ -53,6 +57,10 @@ def _rate_limit_warnings(service: GitHubService) -> list[str]:
 def _handle_error(error: Exception, service: GitHubService | None = None) -> dict:
     if isinstance(error, RepositoryNotAllowedError):
         return _error("repository_not_allowed", str(error), service)
+    if isinstance(error, WriteActionDisabledError):
+        return _error("write_action_disabled", str(error), service)
+    if isinstance(error, WriteActionNotConfirmedError):
+        return _error("write_action_not_confirmed", str(error), service)
     if isinstance(error, GitHubAPIError):
         return _error("github_api_error", str(error), service)
     if isinstance(error, LLMServiceError):
@@ -143,6 +151,31 @@ async def generate_markdown_review(owner: str, repo: str, pull_number: int) -> d
         analysis = _diff_analyzer().analyze(pull_request, files)
         analysis = await _llm_analyzer().enhance_review(pull_request, files, analysis)
         data = analysis.markdown_review
+        return _ok(data, service, _rate_limit_warnings(service))
+    except Exception as error:
+        return _handle_error(error, service)
+
+
+@mcp.tool()
+async def comment_on_pull_request(
+    owner: str,
+    repo: str,
+    pull_number: int,
+    body: str,
+    dry_run: bool = True,
+    confirm: bool = False,
+) -> dict:
+    """Comment on a pull request, using dry-run by default for safety."""
+    service = _github_service()
+    try:
+        data = await service.comment_on_pull_request(
+            owner=owner,
+            repo=repo,
+            pull_number=pull_number,
+            body=body,
+            dry_run=dry_run,
+            confirm=confirm,
+        )
         return _ok(data, service, _rate_limit_warnings(service))
     except Exception as error:
         return _handle_error(error, service)
